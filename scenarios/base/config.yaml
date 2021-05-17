@@ -1,0 +1,13 @@
+SYSTEM:
+    HEADER: "base_"
+    SEED: 100
+PATHS:
+    PROFILES_PATH: "scenarios/base/profiles.yaml"
+    DUMP_PATH: "scenarios/base/out/"
+RUN:
+    MODEL: "Base"
+    ITERS: 90
+    POP: 10000
+    INIT_S: 0.999
+    INIT_I: 0.001
+    INIT_R: 0
