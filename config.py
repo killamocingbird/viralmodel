@@ -29,9 +29,15 @@ _C.RUN.MODEL = ''
 _C.RUN.ITERS = 90
 # Population
 _C.RUN.POP = 100000
+# Distribution file containing PMF of population if None then do uniform
+_C.RUN.POP_DIST = None
 # Percentage SIR to start with
 _C.RUN.INIT_S = 0.999
 _C.RUN.INIT_I = 0.001
 _C.RUN.INIT_R = 0
+
+
+### Projection variables ###
+_C.RUN.PROJECTION = ''
 
 cfg = _C

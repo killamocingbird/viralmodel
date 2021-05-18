@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import models
 import numpy as np
 import os
+import projections
 
 def check_cfg(cfg):
     # Check for profile configuration
@@ -20,6 +21,9 @@ def check_cfg(cfg):
     
 def get_model(cfg, pfs):
     return models.get_model(cfg.RUN.MODEL)(cfg, pfs)
+
+def get_projection(cfg, model):
+    return projections.get_projection(cfg.RUN.PROJECTION)(model)
 
 
 def plot_SIR(SIR):

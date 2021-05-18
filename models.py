@@ -1,15 +1,30 @@
 import math
 import numpy as np
+import os
 import random
 import sys
 
-class Base:
-    
+
+# Interface for models
+class Model_Backbone:
     def __init__(self, cfg, pfs):
         self.cfg = cfg
         self.pfs = pfs
-        
         self.data = dict()
+
+    # ToImplement
+    def forward(self):
+        pass
+    
+    # Dumps the data into a file
+    def dump(self, file_name):
+        np.save(os.path.join(self.cfg.PATHS.DUMP_PATH, file_name), self.data)
+    
+
+class Base(Model_Backbone):
+    def __init__(self, cfg, pfs):
+        super().__init__(cfg, pfs)
+        
         self.infected = set()
         self.recovered = set()
         
@@ -26,11 +41,16 @@ class Base:
                                      self.pfs.POP.MAX_AGE + 1,
                                      len(dat))
         SIR_array = np.zeros((self.cfg.RUN.POP))
+        DSI_array = np.zeros((self.cfg.RUN.POP))
         num_I = int(self.cfg.RUN.INIT_I * self.cfg.RUN.POP)
         num_R = int(self.cfg.RUN.INIT_R * self.cfg.RUN.POP)
         SIR_array[:num_I] = 1
+        # Randomly sample DSI
+        DSI_array[:num_I] = np.random.randint(0, self.pfs.DN.RT, num_I)
         SIR_array[num_I:num_I + num_R] = 2
-        dat[:,2] = SIR_array[np.random.permutation(self.cfg.RUN.POP)]
+        perm = np.random.permutation(self.cfg.RUN.POP)
+        dat[:,2] = SIR_array[perm]
+        dat[:,3] = DSI_array[perm]
         
         # Create entrees in structured pop dataset
         self.data['POP_struct'] = [{'id': dat[i,0],
