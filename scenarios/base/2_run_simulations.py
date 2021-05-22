@@ -58,7 +58,7 @@ class RunProcess(Process):
     
 
 if __name__ == '__main__':
-    run_subscenarios_multi(4)
+    run_subscenarios_multi(8)
     
     
     

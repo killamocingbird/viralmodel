@@ -9,8 +9,12 @@ class Projection_Backbone:
         assert isinstance(model, models.Model_Backbone)
         self.model = model
         
-    
+    # Perform projection
     def project(self):
+        pass
+    
+     # Gets the group index given an agent index; should be able to be tenorized
+    def get_group(self, agent_idx):
         pass
     
     def dump(self, file_name):
@@ -26,6 +30,7 @@ class Age(Projection_Backbone):
             [19, 65],
             [66, 80]
         ]
+        self.group_separations = np.array([4, 18, 65])
         
     # Perform projection
     def project(self):
@@ -38,6 +43,14 @@ class Age(Projection_Backbone):
             ret[i,sir] = freq
         return ret
     
+    # Gets the group index given an agent index. Can be tensorized
+    def get_group(self, agent_idx):
+        ages = self.model.data['POP'][agent_idx][:,1]
+        return np.searchsorted(self.group_separations, ages)
+        
+    
 # Helper function to get classes from string
 def get_projection(classname):
     return getattr(sys.modules[__name__], classname)
+
+

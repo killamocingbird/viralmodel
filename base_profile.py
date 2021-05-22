@@ -21,7 +21,7 @@ RT: Recovery time
 
 ### Disease Information ###
 _C.DN = CN()
-_C.DN.IPI = 0.1
+_C.DN.IPI = 0.05
 _C.DN.RT = 5
 
 ### Population Information ###
@@ -45,7 +45,7 @@ _C.SC.MIN_POP = 1000
 _C.SC.MAX_POP = 5000
 _C.SC.MIN_AGE = 5
 _C.SC.MAX_AGE = 18
-_C.SC.IPH = 2
+_C.SC.IPH = 1
 
 
 ### Work Information ###
@@ -63,7 +63,7 @@ _C.SH.MIN_POP = 2000
 _C.SH.MAX_POP = 10000
 _C.SH.MIN_AGE = 20
 _C.SH.MAX_AGE = 80
-_C.SH.IPH = 1
+_C.SH.IPH = 0.8
 
 
 pfs = _C

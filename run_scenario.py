@@ -21,6 +21,8 @@ def run(config_file, verbose=False):
     model = util.get_model(cfg, pfs)
     # Load in projection
     proj = util.get_projection(cfg, model)
+    # Register projection into model and enable delta logging
+    model.assign_proj(proj, log_deltas=True)
     
     # Set up file dumping / logging
     dump_path = cfg.PATHS.DUMP_PATH
@@ -29,16 +31,18 @@ def run(config_file, verbose=False):
     
     SIR = model.SIR()[None, :]
     # Initial dump
-    model.dump('raw_init')
-    proj.dump('proj_init')
+    proj.dump('proj__0')
     for iteration in tqdm(range(cfg.RUN.ITERS)) if verbose else range(cfg.RUN.ITERS):
         SIR = np.concatenate((SIR, model.forward()[None,:]), 0)
-        model.dump('raw_%d' % iteration)
         proj.dump('proj_%d' % iteration)
+        model.dump_deltas('deltas_%d' % iteration)
         
     return SIR
 
 
 if __name__ == '__main__':
-    SIR = run('scenarios/base/config.yaml')
+    config_path = 'scenarios/test'
+    config_file = 'config.yaml'
+    os.chdir(config_path)
+    SIR = run(config_file)
     util.plot_SIR(SIR)

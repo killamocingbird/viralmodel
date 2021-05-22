@@ -1,0 +1,15 @@
+SYSTEM:
+    HEADER: "base_"
+    SEED: 100
+PATHS:
+    PROFILES_PATH: "profiles.yaml"
+    DUMP_PATH: "out/"
+RUN:
+    MODEL: "Base"
+    ITERS: 60
+    POP: 10000
+    POP_DIST: "distrib.npy"
+    INIT_S: 0.999
+    INIT_I: 0.001
+    INIT_R: 0
+    PROJECTION: "Age"

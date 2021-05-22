@@ -1,0 +1,19 @@
+#!/bin/bash
+#SBATCH --job-name=ViralRun
+
+#SBATCH -p sesempi
+#SBATCH -n 32
+#SBATCH --time=6:00:00
+#SBATCH --mem-per-cpu=6000
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-type=END
+#SBATCH --mail-user=jlwang5@illinois.edu
+
+
+cd ~/
+source new_conda
+conda activate pytorch
+
+cd viralmodel/scenarios/base
+
+python 2_run_simulations.py

@@ -1,6 +1,8 @@
+import distributions
 import math
 import numpy as np
 import os
+import projections
 import random
 import sys
 
@@ -31,15 +33,37 @@ class Base(Model_Backbone):
         self.generate_pop()
         self.generate_locations()
     
+        self.proj = None
+        self.log_deltas = False
+        self.deltas = None
+    
+    
+    def assign_proj(self, proj, log_deltas=True):
+        assert isinstance(proj, projections.Projection_Backbone)
+        self.proj = proj
+        self.log_deltas = log_deltas
+        self.deltas = np.zeros((0, len(proj.groups), len(proj.groups)))
+    
     
     def generate_pop(self):
         # [id, Age, SIR (0, 1, 2), Days since infection] 
         self.data['POP'] = np.zeros((self.cfg.RUN.POP, 4), dtype=np.long)
         dat = self.data['POP']
         dat[:,0] = np.arange(len(self.data['POP']))
-        dat[:,1] = np.random.randint(self.pfs.POP.MIN_AGE,
-                                     self.pfs.POP.MAX_AGE + 1,
-                                     len(dat))
+        
+        # Generate ages according to distribution if provided else uniform
+        if self.cfg.RUN.POP_DIST is None:
+            dat[:,1] = np.random.randint(self.pfs.POP.MIN_AGE,
+                                         self.pfs.POP.MAX_AGE + 1,
+                                         len(dat))
+        else:
+            dist_file = self.cfg.RUN.POP_DIST
+            assert os.path.isfile(dist_file), "Distribution file invalid"
+            pmf = np.load(dist_file, allow_pickle=True)
+            dat[:,1] = distributions.sample(self.pfs.POP.MIN_AGE,
+                                            self.pfs.POP.MAX_AGE,
+                                            pmf, num_samples=len(dat))
+            
         SIR_array = np.zeros((self.cfg.RUN.POP))
         DSI_array = np.zeros((self.cfg.RUN.POP))
         num_I = int(self.cfg.RUN.INIT_I * self.cfg.RUN.POP)
@@ -107,6 +131,10 @@ class Base(Model_Backbone):
     home for 16 hours.
     """
     def forward(self):
+        # Clean out temporary deltas matrix for logging
+        if self.log_deltas:
+            self.clean_deltas()
+        
         # Simulate 8 hours at home
         self.simulate('HH', 8)            
         
@@ -123,9 +151,29 @@ class Base(Model_Backbone):
         # Increment DSI and simulate recovery
         self.recovery()
         
+        # Aggregate deltas into record
+        if self.log_deltas:
+            self.agg_deltas()
+        
         # Return new SIR
         return self.SIR()
     
+    
+    def clean_deltas(self):
+        assert self.log_deltas, "Delta logging is not enabled."
+        assert self.proj, "No projectile scheme to log deltas."
+        
+        # Create empty 2D
+        self.deltas_temp = np.zeros((len(self.proj.groups), len(self.proj.groups)))
+        
+    
+    def agg_deltas(self):
+        self.deltas = np.concatenate((self.deltas, self.deltas_temp[None,:,:]), 0)
+        
+    
+    def dump_deltas(self, file_name, include_past=False):
+        ret = self.deltas if include_past else self.deltas[-1]
+        np.save(os.path.join(self.cfg.PATHS.DUMP_PATH, file_name), ret)
     
     # Simulates time hours in the specified location key
     def simulate(self, key, time):
@@ -134,18 +182,40 @@ class Base(Model_Backbone):
         for loc in self.data[key]:
             infected = list(self.infected.intersection(loc['POP'][:,0]))
             susceptible = list(set(loc['POP'][:,0]).difference(infected).difference(self.recovered))
-            if len(susceptible) != 0:
+            if len(susceptible) != 0 and len(infected) != 0:
                 # Generate list of interactions
-                interactions = np.random.randint(0, len(loc['POP'][:,0])-1, math.ceil(time * self.pfs[key].IPH * len(infected)))
-                # Filter out interactions with only those susceptible
-                interactions = interactions[interactions < len(susceptible)]
+                interactions = np.random.randint(0, len(loc['POP'][:,0])-1, math.ceil(time * self.pfs[key].IPH) * len(infected))
                 
-                inter, freq = np.unique(interactions, return_counts=True)
-                for i in range(len(inter)):
-                    if (np.random.rand(freq[i]) < self.pfs.DN.IPI).any():
-                        self.data['POP'][inter[i],2] = 1
-                        self.data['POP_struct'][inter[i]]['SIR'] = 1
-                        self.infected.add(inter[i])
+                if self.log_deltas:
+                    # Get groups of infected and susceptible
+                    inf_groups = self.proj.get_group(infected)
+                    sus_groups = self.proj.get_group(susceptible)
+                    # Group interactions
+                    gr_interactions = interactions.reshape((len(infected), -1))
+                    gr_inter = [np.unique(gr_interactions[i][gr_interactions[i] < len(susceptible)], return_counts=True) 
+                                for i in range(len(gr_interactions))]
+                    for i in range(len(gr_inter)):
+                        for j in range(len(gr_inter[i][0])):
+                            # Avoid double counting infections
+                            if self.data['POP'][susceptible[gr_inter[i][0][j]],2] == 1:
+                                continue
+                            if (np.random.rand(gr_inter[i][1][j]) < self.pfs.DN.IPI).any():
+                                self.data['POP'][susceptible[gr_inter[i][0][j]],2] = 1
+                                self.data['POP_struct'][susceptible[gr_inter[i][0][j]]]['SIR'] = 1
+                                self.infected.add(susceptible[gr_inter[i][0][j]])
+                                # Add to deltas matrix
+                                self.deltas_temp[inf_groups[i], sus_groups[gr_inter[i][0][j]]] += 1
+                    
+                else:
+                    # Filter out interactions with only those susceptible
+                    interactions = interactions[interactions < len(susceptible)]
+                    
+                    inter, freq = np.unique(interactions, return_counts=True)
+                    for i in range(len(inter)):
+                        if (np.random.rand(freq[i]) < self.pfs.DN.IPI).any():
+                            self.data['POP'][susceptible[inter[i]],2] = 1
+                            self.data['POP_struct'][susceptible[inter[i]]]['SIR'] = 1
+                            self.infected.add(susceptible[inter[i]])
         
     # Counts up DSI for each infected agent and simulates recovery if above threshold
     def recovery(self):
